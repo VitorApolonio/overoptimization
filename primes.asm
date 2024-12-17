@@ -50,9 +50,9 @@ section .text
     extern      ReadFile
     extern      WriteFile
     ; C functions
-    extern      strncat
+    extern      strcat
     extern      strtol
-    extern      _itoa_s
+    extern      _itoa
     extern      clock
 
     global      _start
@@ -120,15 +120,13 @@ _start:
 
     mov         rcx, [found]
     lea         rdx, int_buffer
-    mov         r8, buff_len
-    mov         r9, 0xA ; number base
-    call        _itoa_s
+    mov         r8, 0xA ; number base
+    call        _itoa
 
     mov         rcx, int_buffer
     mov         rdx, new_line
-    mov         r8, 0x1
-    xor         r9, r9
-    call        strncat
+    xor         r8, r8
+    call        strcat
 
     mov         rcx, [out_handle]
     mov         rdx, int_buffer
@@ -149,9 +147,8 @@ _start:
 
     mov         rcx, [duration]
     lea         rdx, int_buffer
-    mov         r8, buff_len
-    mov         r9, 0xA
-    call        _itoa_s
+    mov         r8, 0xA
+    call        _itoa
 
     mov         rcx, [out_handle]
     mov         rdx, int_buffer
@@ -192,22 +189,20 @@ printPrimes:
     ; convert
     mov         rcx, r14
     lea         rdx, int_buffer
-    mov         r8, buff_len
-    mov         r9, 0xA
-    call        _itoa_s
+    mov         r8, 0xA
+    call        _itoa
 
-    mov         rcx, r14
+    ; faster than an additional strcat call
+    mov         rcx, int_buffer
     call        countDigits
-
-    ; faster than an additional strncat call
     lea         rbx, [int_buffer]
-    mov         byte [rbx + rax], 0xA
+    mov         byte [rbx + rax], 0xA ; int buffer pointer + digit count = position to add new line
 
     ; add to buffer
     mov         rcx, prt_buffer
     mov         rdx, int_buffer
-    mov         r8, buff_len
-    call        strncat
+    xor         r8, r8
+    call        strcat
 
     inc         r14
     inc         qword [found]
@@ -246,32 +241,29 @@ printPrimes:
     pop         rbp
     ret
 
-
 countDigits:
     push        rbp
     mov         rbp, rsp
     sub         rsp, 0x20
 
-    mov         r12, 0x1 ; digit counter
-    mov         r13, 0xA ; radix? dunno what to call this
+    mov         r12, 0xA ; digit counter
+    lea         r13, [int_buffer + buff_len - 3] ; buffer length - 1 is NUL, -2 is reserved for new line, -3 is the last number digit
 
 .countLoop:
-    cmp         rcx, r13
-    jg          .isGreater
+    cmp         byte [r13], 0x0 ; check if char is NUL
+    jne         .endCount
 
+    dec         r12
+    dec         r13
+    jmp         .countLoop
+
+.endCount:
     mov         rax, r12
-
+    
     mov         rsp, rbp
     pop         rbp
     ret
 
-.isGreater:
-    inc         r12
-    mov         rax, r13
-    mov         rbx, 0xA
-    mul         rbx
-    mov         r13, rax
-    jmp         .countLoop
 
 checkIfPrime:
     push        rbp
