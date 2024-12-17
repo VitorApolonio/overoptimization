@@ -21,13 +21,14 @@ section .data
     
     max_check   dq 0x0
     found       dq 0x0
+    cached      dq 0x0
 
     ; string buffer, used to store numbers temporarily for printing
     int_buffer  db 0xC dup(0x0)
     buff_len    equ $ - int_buffer
 
     ; stores multiple numbers at once for printing
-    prt_buffer  db 0x1FFF dup(0x0)
+    prt_buffer  db 0x15F6 dup(0x0)
     prt_len     equ $ - prt_buffer
 
     ; input and output handles, for printing and reading input
@@ -58,9 +59,6 @@ section .text
     global      _start
 
 _start:
-    ; A major slowdown in the code appears to be the extra call to strcat
-    ; to add newlines to numbers. Perhaps a custom function could achieve
-    ; faster times.
     push        rbp
     mov         rbp, rsp
     sub         rsp, 0x20
@@ -206,11 +204,12 @@ printPrimes:
 
     inc         r14
     inc         qword [found]
+    inc         qword [cached]
 
 .addedNumber:
     ; print after adding n numbers to buffer
-    test        qword [found], 0x1FF
-    jnz         .printLoop
+    cmp        qword [cached], 0x1FF
+    jng        .printLoop
 
     mov         rcx, [out_handle]
     mov         rdx, prt_buffer
@@ -222,6 +221,8 @@ printPrimes:
     mov         rcx, prt_len
     mov         rax, 0x0
     rep         stosb
+
+    mov         qword [cached], 0x0
 
     jmp         .printLoop
 
@@ -251,7 +252,7 @@ countDigits:
 
 .countLoop:
     cmp         byte [r13], 0x0 ; check if char is NUL
-    jne         .endCount
+    jnz         .endCount
 
     dec         r12
     dec         r13
@@ -293,10 +294,13 @@ checkIfPrime:
 
     mov         r8, 0x3 ; counter for loop
 
+    ; precompute sqrt of number, thx StackOverflow
+    cvtsi2sd    xmm0, rcx
+    sqrtsd      xmm0, xmm0     ; sd means scalar double, as opposed to SIMD packed double
+    cvttsd2si   r9, xmm0     ; convert with truncation (C-style cast)
+
 .checkDivisors:
-    mov         rax, r8
-    mul         r8
-    cmp         rax, rcx ; compare square of possible divisor with number, same as i > sqrt(n)
+    cmp         r8, r9
     jg          .noDivisors
 
     xor         rdx, rdx
