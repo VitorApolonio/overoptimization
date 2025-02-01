@@ -295,6 +295,7 @@ checkIfPrime:
     mov         r8, 0x3 ; counter for loop
 
     ; precompute sqrt of number, thx StackOverflow
+    ; source: https://stackoverflow.com/a/35748220
     cvtsi2sd    xmm0, rcx
     sqrtsd      xmm0, xmm0     ; sd means scalar double, as opposed to SIMD packed double
     cvttsd2si   r9, xmm0     ; convert with truncation (C-style cast)
